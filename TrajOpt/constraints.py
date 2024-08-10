@@ -35,6 +35,9 @@ class Waypoint(Constraint):
     def __repr__(self) -> str:
         return "Waypoint: " + repr(self.waypoint_dict)
     
+    def plot(self, axis):
+        axis.plot(self.x, self.y, 'bo')
+
 class FullRestWaypoint(Waypoint):
     def __init__(self, **waypoint_dict) -> None:
 

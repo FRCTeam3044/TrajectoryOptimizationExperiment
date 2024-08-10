@@ -68,7 +68,7 @@ def colored_line(x, y, c, ax, **lc_kwargs):
 
 def _plot_robot_trajectory(axis,fig, x, y, v):
     lines = colored_line(x,y,v, axis)
-    fig.colorbar(lines)
+    fig.colorbar(lines, label="velocity (m/s)")
     
 
 def _plot_robot_rotation(axis, x, y, theta, botSize):
@@ -79,6 +79,10 @@ def _plot_robot_rotation(axis, x, y, theta, botSize):
 def _plot_obs(axis, obs):
     for o in obs:
         o.plot(axis)
+    
+def _plot_wpts(axis, wpts):
+    for wpt in wpts:
+        wpt.plot(axis)
 
 def plot_solution(probDef):
     fig1, axis = plt.subplots()
@@ -89,8 +93,11 @@ def plot_solution(probDef):
     _plot_robot_rotation(axis, probDef.solution.x, probDef.solution.y, probDef.solution.theta, probDef.botParams.botEdgeSize)
 
     _plot_robot_trajectory(axis, fig1, probDef.solution.x, probDef.solution.y, probDef.solution.v)
-    plt.axis('equal')
 
+    _plot_wpts(axis, probDef.wpts )
+    plt.axis('equal')
+    plt.xlabel('X (m)')
+    plt.ylabel('Y (m)')
     plt.show()
 
 def plot_value_graph(probDef, key):
