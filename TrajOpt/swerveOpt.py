@@ -58,7 +58,7 @@ def kinematicConstraints(probDef):
             an1 = (probDef.solution.ax[i-1], probDef.solution.ay[i-1])
             alphan = probDef.solution.alpha[i]
 
-            sweep_sum += omegan*dt
+            sweep_sum += omegan*dt + alphan*0.5*dt*dt
             # tn_tn1 = rotSub(tn, tn1)
             # tn1_p_omega_dt = rotAdd(tn1, (autodiff.cos(omegan*dt), autodiff.sin(omegan*dt)))
             #kinematic constraints

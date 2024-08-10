@@ -40,7 +40,7 @@ The successive black squares indicate the robot's current rotation along it's pa
 3. (2,4): Come to rest in front of the objective
 4. (4,0): Reach this point on the way to the next objective with a speed of 2m/s in the x direction.
 
-The total time for this trajectory following reasonable robot characteristics similar to our 2024 robot was 6.325s, with a total solve time of 0.0782s on an 11th Gen core i7-11700F @ 2.50GHz. This has not been tested for speed on a viable coprocessor yet, and is the primary remaining variable to whether or not this technique would be feasible for realtime use.
+The total time for this trajectory following reasonable robot characteristics similar to our 2024 robot was 6.325s, with a total solve time of 0.084s on an 11th Gen core i7-11700F @ 2.50GHz. This has not been tested for speed on a viable coprocessor yet, and is the primary remaining variable to whether or not this technique would be feasible for realtime use.
 
 # Simplifying Assumptions
 I started this work using the same problem formulation as TrajOptLib, however it seemed unlikely that their problem definition could be made to run in realtime. I have introduced several simplifying assumptions in order to reduce computational burden to replace some of the more complex constraints in their formulation:
