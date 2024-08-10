@@ -133,7 +133,7 @@ def dynamicConstraints(probDef):
         #this is wrong, but gets close to the correct behavior
         # for some reason jorg has an awful time calculating v using autodiff.sqrt as opposed to v^2 (or the abs value of vx/vy using autodiff.abs) 
         # this is as close as I could get to a correct formulation for now, although it would be better for this to become a conservative bounding function 
-        vWheelWorstCase = sqrNorm(vn) + r*r*omegan*omegan# + 2*v*r*omegan
+        vWheelWorstCase = sqrNorm(vn) + r*r*omegan*omegan# + |2*v*r*omegan|
         probDef.problem.subject_to(vWheelWorstCase<= probDef.botParams.maxWheelVel**2)
 
         # dynamic constraints on force/accel
