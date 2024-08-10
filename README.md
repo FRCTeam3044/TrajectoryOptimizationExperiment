@@ -6,5 +6,7 @@ The primary goal of this work is to determine whether it is technically feasible
 
 Please feel free to ask me any questions you have about this work.
 
+![Example Trajectory](https://github.com/FRCTeam3044/TrajectoryOptimizationExperiment/blob/main/images/exampleTraj.png)
+
 
 
