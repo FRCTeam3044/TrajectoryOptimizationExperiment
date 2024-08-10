@@ -1,7 +1,5 @@
 import matplotlib.pylab as plt
 import math
-
-
 from dataclasses import dataclass, fields
 
 def constrainTo(problem, state, val):

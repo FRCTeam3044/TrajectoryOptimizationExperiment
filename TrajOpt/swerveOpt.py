@@ -1,10 +1,11 @@
+from trajOpt.jorgMathUtil import get_index, rotateBy, cross, negRot, sqrNorm, fac, pow, taylorCos, taylorSin, rotAdd, rotSub, angleWrap
+
 import math
-from jorgMathUtil import get_index, rotateBy, cross, negRot, sqrNorm, fac, pow, taylorCos, taylorSin, rotAdd, rotSub, angleWrap
 
 
 # def build_problem(wpts, samples, obs=[], approx=False):
 def build_problem(probDef):
-        
+    """Calls all necessary steps to build a complete problem given a properly created problem definition object."""
     kinematicConstraints(probDef)
     dynamicConstraints(probDef)
 
@@ -64,6 +65,8 @@ def kinematicConstraints(probDef):
             #kinematic constraints
             #https://github.com/SleipnirGroup/Choreo/blob/main/trajoptlib/src/SwerveTrajectoryGenerator.cpp#L146
             for xyi in range(len(xn)):
+
+                # particle acceleration formula. Constrains the position of the robot for each successive sample to align with it's velocity and acceleration
                 probDef.problem.subject_to(xn1[xyi] + vn[xyi] * dt + an[xyi] * 0.5 * dt * dt == xn[xyi])
 
                 #angular velocity constraint formulation directly from https://github.com/SleipnirGroup/Choreo/blob/main/trajoptlib/src/SwerveTrajectoryGenerator.cpp#L148
@@ -71,20 +74,29 @@ def kinematicConstraints(probDef):
 
                 #new angle velocity constraint formulation, several order magnitude speedup for some reason
                 # problem.subject_to(tn[xyi] == tn1_p_omega_dt[xyi])
+
+                # particle accleration formula, but for velocity
                 probDef.problem.subject_to(vn1[xyi] + an[xyi]*dt == vn[xyi])
                 # problem.subject_to(autodiff.abs(vn[xyi]) == vna[xyi])
 
+            # rotational acceleration formula
             probDef.problem.subject_to(omegan1 + alphan*dt == omegan)
 
             # add quantity limits
+            # jerk limit
             probDef.problem.subject_to(sqrNorm((an[0]-an1[0], an[1]-an1[1]))<= probDef.botParams.jerkLim**2)
+            # linear acceleration limit
             probDef.problem.subject_to(sqrNorm(an) <= probDef.botParams.accelLim**2)
+            # angular velocity limit
             probDef.problem.subject_to(omegan**2 <= probDef.botParams.omegaLim**2)
+            # angular acceleration limit, could also add an angular jerk limit if necessary
             probDef.problem.subject_to(alphan**2 <= probDef.botParams.alphaLim**2)
 
             #failed attempt at "look at" constraint
             # problem.subject_to((sweep_sum+last_angle) == autodiff.tan((-10-xn[1])/ (-10-xn[0])))
 
+        # This ensures that the robot will hit the specific waypoint theta angles. Instead of having the optimizer solve for the angle of the robot at each step directly (which is expensive), 
+        # we constrain the distance travelled based on the angular velocity and acceleration between each theta constraining waypoint to be equal to the shortest angular path to the next theta waypoint.
         if probDef.wpts[wptInd+1].hasValue("theta"):
             wpt_theta = probDef.wpts[wptInd+1].theta
             angle_change = wpt_theta - last_angle
@@ -142,6 +154,7 @@ def dynamicConstraints(probDef):
         # problem.subject_to(tauNet == moi*alpha[i])
 
 def applyExternalConstraints(probDef):
+    # apply waypoint constraints
     for wptInd in range(len(probDef.wpts[:-1])):
         i = get_index(wptInd, 0, probDef.samples)
         #constrain waypoints
@@ -150,10 +163,13 @@ def applyExternalConstraints(probDef):
     #constrain last waypoint
     probDef.wpts[-1].apply(probDef.problem, probDef.solution, -1)
 
+    # apply obstacle constraints
     for o in probDef.obs:
         o.apply(probDef.problem, probDef.solution, 0, sum(probDef.samples))
         
 def applyInitialGuess( probDef):
+    """ Create the initial guess values for the problem. This linearly interpolates the values of each sample before constrained waypoints for each value type.
+    Applying an initial guess like this significantly boosts the speed and robustness of solving the problem. """
     solution = probDef.solution
     wpts = probDef.wpts
     samples = probDef.samples
@@ -182,6 +198,7 @@ def applyInitialGuess( probDef):
 
 
 def getInitialThetaPerPoint(probDef):
+    """ Compute an interpolated value for theta based on waypoints. Needed to set initial values of angular velocity."""
     #there is definitely a more elegant way to do this
     wpts = probDef.wpts
     samples = probDef.samples

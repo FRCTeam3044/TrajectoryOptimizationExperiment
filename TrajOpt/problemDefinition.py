@@ -1,38 +1,53 @@
-from jorgMathUtil import sqrDist
-import math
-from jorgMathUtil import angleWrap, sqrNorm
+
+from trajOpt.jorgMathUtil import angleWrap, sqrNorm, sqrDist
+from trajOpt.swerveOpt import build_problem
+from trajOpt.constraints import InitialWaypoint
+
+from jormungandr.optimization import OptimizationProblem
 
 import numpy as np
 from dataclasses import dataclass
-from constraints import InitialWaypoint
-from jormungandr.optimization import OptimizationProblem
-from swerveOpt import build_problem
 import time
+import math
 class SwerveSolution:
-
+    """
+    This class stores the decision variables for the optimization problem, and will extract and compute the implicit and explicit values in the solution for use after solving. 
+    """
     def __init__(self, problem, samples) -> None:
         sampTot = sum(samples)
         sgmtCnt = len(samples)
+        # x position of robot
         self.x = [problem.decision_variable() for _ in range(sampTot)]
+        # y position of robot
         self.y = [problem.decision_variable() for _ in range(sampTot)]
+        # x velocity of robot
         self.vx = [problem.decision_variable() for _ in range(sampTot)]
+        # y velocity of robot
         self.vy = [problem.decision_variable() for _ in range(sampTot)]
         # self.vxa = [problem.decision_variable() for _ in range(sampTot)]
         # self.vya = [problem.decision_variable() for _ in range(sampTot)]
         # self.tcos = [problem.decision_variable() for _ in range(sampTot)]
         # self.tsin = [problem.decision_variable() for _ in range(sampTot)]
+        # angular velocity of robot
         self.omega = [problem.decision_variable() for _ in range(sampTot)]
+        # x acceleration of robot
         self.ax = [problem.decision_variable() for _ in range(sampTot)]
+        # y acceleration of robot
         self.ay = [problem.decision_variable() for _ in range(sampTot)]
+        # angular acceleration of robot
         self.alpha = [problem.decision_variable() for _ in range(sampTot)]
 
         # Fy = [[problem.decision_variable() for _ in range(moduleCnt)] for _ in range(sampTot)]
         # Fx = [[problem.decision_variable() for _ in range(moduleCnt)] for _ in range(sampTot)]
         
+        # dt for each segment in the problem. dt is the time between each sample. Will be uniform within each segment.
         self.dts = [problem.decision_variable() for _ in range(sgmtCnt)]
         self.solved = False
 
     def finalize_solution(self,probDef):
+        """
+        Extracts solved values after the problem completes and computes implicit values like total time and robot angle.
+        """
         self.x = [n.value() for n in self.x]
         self.y = [n.value() for n in self.y]
         self.vx = [n.value() for n in self.vx]
@@ -74,32 +89,44 @@ class SwerveSolution:
         return out
 @dataclass
 class BotParams():
+    """
+    Dataclass to hold and compute robot properties necessary for the problem.
+    """
     
-    wheelRad: float # = 0.0381
+    wheelRad: float = 0.0381 #m
 
-    jerkLim: float # = 1
-    accelLim: float
-    omegaLim: float # = 8
-    alphaLim: float # = 15
+    jerkLim: float = 1 #m/s^3
+    accelLim: float = 3 #m/s^2
+    omegaLim: float = 8 #rad/s
+    alphaLim: float = 15 #rad/s^2
 
-    maxWheelVel: float # = 4.8768
-    botEdgeSize: float
+    # could also be max robot speed
+    maxWheelVel: float = 4.8768 #m/s
+
+    # assumes square bot with module at each corner, length of one side
+    botEdgeSize: float = 1 #m
     @property
     def wheelMaxAngVel(self):
+        """maximum angular velocity of each wheel in rad/s"""
         return self.maxWheelVel/self.wheelRad
     
     @property
     def minWidth(self):
+        """additional name for robot edge size. This is the minimum width between any of the module, which for a square is just the length of the edge"""
         return self.botEdgeSize
     
     @property
     def modPos(self):
+        """ module positions relative to center of bot"""
         return [(self.botEdgeSize/2, self.botEdgeSize/2),
                 (-self.botEdgeSize/2, self.botEdgeSize/2),
                 (-self.botEdgeSize/2, -self.botEdgeSize/2),
                 (self.botEdgeSize/2, -self.botEdgeSize/2)]
 
 class ProblemDefinition():
+    """
+    This class contains all the different necessary components for our optimization method. Call .build() to create the problem decision variables and setup constraints, and .solve() to run the problem.
+    """
     def __init__(self,botParams, wpts, obs):
         assert issubclass(type(wpts[0]), InitialWaypoint), "First waypoint must be initial waypoint"
         self.problem = OptimizationProblem()
@@ -107,7 +134,7 @@ class ProblemDefinition():
         self.wpts = wpts
         self.obs = obs
         self.botParams = botParams
-        self.samples = get_samples(wpts)
+        self.samples = self.get_samples(wpts)
         for o in obs:
             o.registerBot(botParams)
         self.solution = SwerveSolution(self.problem, self.samples)
@@ -136,21 +163,31 @@ class ProblemDefinition():
         {repr(self.solution)}
         """
         return out
-def get_samples(wpts, sampPerMeter=10, sampPerRad=15, minSamp=10):
-    samples = []
-    assert wpts[0].theta is not None, "You should use an initial waypoint at the front of the waypoint list"
-    theta = wpts[0].theta
-    for last_wpt, next_wpt in zip(wpts[:-1], wpts[1:]):
-        a = (last_wpt.x, last_wpt.y)
-        b = (next_wpt.x, next_wpt.y)
-        dist = math.sqrt(sqrDist(a,b))
-        samp = int(dist)*sampPerMeter
-        if next_wpt.hasValue('theta'):
-            angSamp = int(abs(angleWrap(theta-next_wpt.theta))*sampPerRad)
-            samp = max(samp, angSamp)
-            theta=next_wpt.theta
 
-        samp = max(samp, minSamp)
-        samples.append(samp)
+    def get_samples(self, wpts, sampPerMeter=10, sampPerRad=15, minSamp=10):
+        """
+        Utility function to decide how many samples per segment should be added to the problem.
 
-    return samples
+        sampPerMeter: will add this many samples per meter to the segment based on the distance between adjacent waypoints
+        sampPerRad: will add this many samples per radian to the segment based on the radial distance between adjacent waypoints
+        minSamp: the minimum number of samples a segment can have
+
+        Angular and translational waypoints are calculated separatly and the maximum value is used.
+        """
+        samples = []
+        assert wpts[0].theta is not None, "You should use an initial waypoint at the front of the waypoint list"
+        theta = wpts[0].theta
+        for last_wpt, next_wpt in zip(wpts[:-1], wpts[1:]):
+            a = (last_wpt.x, last_wpt.y)
+            b = (next_wpt.x, next_wpt.y)
+            dist = math.sqrt(sqrDist(a,b))
+            samp = int(dist)*sampPerMeter
+            if next_wpt.hasValue('theta'):
+                angSamp = int(abs(angleWrap(theta-next_wpt.theta))*sampPerRad)
+                samp = max(samp, angSamp)
+                theta=next_wpt.theta
+
+            samp = max(samp, minSamp)
+            samples.append(samp)
+
+        return samples

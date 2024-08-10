@@ -4,8 +4,8 @@
 # vectors are all length 2, rotations are all in form [cos(theta), sin(theta)]
 
 import math
+
 def get_index(wptInd, sgmtInd, samples ):
-    
     return sum(samples[:wptInd])+sgmtInd
 def rotateBy(vec, rot):
     return (vec[0]*rot[0] - vec[1]*rot[1], vec[0]*rot[1] + vec[1]*rot[0])
