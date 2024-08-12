@@ -13,9 +13,12 @@ class SwerveSolution:
     """
     This class stores the decision variables for the optimization problem, and will extract and compute the implicit and explicit values in the solution for use after solving. 
     """
-    def __init__(self, problem, samples) -> None:
-        sampTot = sum(samples)
-        sgmtCnt = len(samples)
+    def __init__(self, probDef) -> None:
+        self.solved = False
+
+        sampTot = sum(probDef.samples)
+        sgmtCnt = len(probDef.samples)
+        problem = probDef.problem
         # x position of robot
         self.x = [problem.decision_variable() for _ in range(sampTot)]
         # y position of robot
@@ -24,6 +27,7 @@ class SwerveSolution:
         self.vx = [problem.decision_variable() for _ in range(sampTot)]
         # y velocity of robot
         self.vy = [problem.decision_variable() for _ in range(sampTot)]
+
         # self.vxa = [problem.decision_variable() for _ in range(sampTot)]
         # self.vya = [problem.decision_variable() for _ in range(sampTot)]
         # self.tcos = [problem.decision_variable() for _ in range(sampTot)]
@@ -42,7 +46,7 @@ class SwerveSolution:
         
         # dt for each segment in the problem. dt is the time between each sample. Will be uniform within each segment.
         self.dts = [problem.decision_variable() for _ in range(sgmtCnt)]
-        self.solved = False
+        self.dts_matched = self.getDtsMatched(probDef, self.dts)
 
     def finalize_solution(self,probDef):
         """
@@ -59,24 +63,42 @@ class SwerveSolution:
         self.dts = [n.value() for n in self.dts]
 
         self.dt_seg = self.dts
-        dts_matched = []
-        for dt_seg in [[dt]*Ns for dt, Ns in zip(self.dts, probDef.samples)]:
-            dts_matched.extend(dt_seg)
+        dts_matched = self.getDtsMatched(probDef, self.dts)
         self.dts = dts_matched
 
         self.time = [float(t) for t in np.cumsum(dts_matched)]
         self.end_time = self.time[-1]
         self.samples = probDef.samples
         self.wpts = probDef.wpts
-        self.v = [math.sqrt(sqrNorm((x,y))) for x, y in zip(self.vx, self.vy)]
+        self.v = self.calculateV(self.vx, self.vy)
         self.a = [math.sqrt(sqrNorm((x,y))) for x,y in zip(self.ax, self.ay)]
-        self.theta = []
-        for omegan, dt in zip(self.omega, dts_matched):
-            if self.theta == []:
-                self.theta.append(probDef.wpts[0].theta + omegan*dt)
-            else:
-                self.theta.append(self.theta[-1] + omegan*dt)
+        
         self.solved = True
+
+        self.theta = self.calculateTheta(probDef, self.omega, self.dts)
+        for wpt in probDef.wpts:
+            wpt.setSolutionTime(self.time[wpt.firstInd])
+
+    def calculateTheta(self,probDef, omega, dts_matched):
+        theta = []
+        for omegan, dt in zip(omega, dts_matched):
+            if theta == []:
+                theta.append(probDef.wpts[0].theta + omegan*dt)
+            else:
+                theta.append(theta[-1] + omegan*dt)
+        return theta
+        
+    def getDtsMatched(self,probDef, dts):
+        if self.solved:
+            return self.dts
+        
+        dts_matched = []
+        for dt_seg in [[dt]*Ns for dt, Ns in zip(dts, probDef.samples)]:
+            dts_matched.extend(dt_seg)
+        return dts_matched
+    
+    def calculateV(self, vx, vy):
+        return [math.sqrt(sqrNorm((x,y))) for x, y in zip(vx, vy)]
     
     def __repr__(self) -> str:
         if self.solved:
@@ -123,36 +145,52 @@ class BotParams():
                 (-self.botEdgeSize/2, -self.botEdgeSize/2),
                 (self.botEdgeSize/2, -self.botEdgeSize/2)]
 
+    @property
+    def circumcircleRadius(self):
+        edge = self.botEdgeSize
+        return math.sqrt(edge*edge + edge*edge)/2
 class ProblemDefinition():
     """
     This class contains all the different necessary components for our optimization method. Call .build() to create the problem decision variables and setup constraints, and .solve() to run the problem.
     """
     def __init__(self,botParams, wpts, obs):
-        assert issubclass(type(wpts[0]), InitialWaypoint), "First waypoint must be initial waypoint"
+        # assert issubclass(type(wpts[0]), InitialWaypoint), f"First waypoint must be initial waypoint, current type is: {type(wpts[0])}"
         self.problem = OptimizationProblem()
         
         self.wpts = wpts
         self.obs = obs
         self.botParams = botParams
         self.samples = self.get_samples(wpts)
-        for o in obs:
-            o.registerBot(botParams)
-        self.solution = SwerveSolution(self.problem, self.samples)
-        self.solved = False
 
+        self.solved = False
+        self.solution = SwerveSolution(self)
+
+        totSamp = 0
+        for sgmtInd, (wpt, samp)  in enumerate(zip(wpts[:-1], self.samples)):
+            wpt.setInds(totSamp, totSamp+samp, sgmtInd)
+            totSamp += samp
+        wpts[-1].setInds(totSamp-1, totSamp-1, len(wpts)-1)
+        
+        prev = None
+        for wpt1, wpt2 in zip(wpts[:-1], wpts[1:]):
+            wpt1.setNeighbors(prev, wpt2)
+            prev = wpt1
+        
+        wpts[-1].setNeighbors(prev, None)
     def solve(self, **kwargs):
         a = time.time()
         self.problem.solve(**kwargs)
         b = time.time()
         print(f"Problem Solve Time: " + str(b-a))
-
         self.solution.finalize_solution(self)
         self.solved = True
+
     def build(self):
         a = time.time()
         build_problem(self)
         b = time.time()
         print(f"Problem Build Time: " + str(b-a))
+
     def __repr__(self) -> str:
         out = ""
         out += f"""{"Unsolved Problem Definition: " if not self.solved else "Solved Problem Definition: "}
@@ -164,7 +202,7 @@ class ProblemDefinition():
         """
         return out
 
-    def get_samples(self, wpts, sampPerMeter=10, sampPerRad=15, minSamp=10):
+    def get_samples(self, wpts, sampPerMeter=15, sampPerRad=15, minSamp=10):
         """
         Utility function to decide how many samples per segment should be added to the problem.
 

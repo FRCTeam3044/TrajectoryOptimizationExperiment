@@ -83,6 +83,7 @@ def _plot_wpts(axis, wpts):
         wpt.plot(axis)
 
 def plot_solution(probDef):
+    assert probDef.solution.solved, "problem must be solved to plot solution"
     fig1, axis = plt.subplots()
     # axis = plt.gca()
 
@@ -98,8 +99,30 @@ def plot_solution(probDef):
     plt.ylabel('Y (m)')
     plt.show()
 
+def plot_initialization(probDef):
+    assert not probDef.solution.solved, "can't plot initialization after problem is solved"
+    fig1, axis = plt.subplots()
+    _plot_obs(axis, probDef.obs)
+    dts_matched = probDef.solution.getDtsMatched(probDef,[dt.value() for dt in probDef.solution.dts])
+    theta = probDef.solution.calculateTheta(probDef, [o.value() for o in probDef.solution.omega], dts_matched)
+    _plot_robot_rotation(axis, [x.value() for x in probDef.solution.x], [y.value() for y in probDef.solution.y], theta, probDef.botParams.botEdgeSize)
+
+    vx = [v.value() for v in probDef.solution.vx]
+    vy = [v.value() for v in probDef.solution.vy]
+
+    _plot_robot_trajectory(axis, fig1, [x.value() for x in probDef.solution.x], [y.value() for y in probDef.solution.y], probDef.solution.calculateV(vx,vy))
+    _plot_wpts(axis, probDef.wpts )
+    plt.axis('equal')
+    plt.xlabel('X (m)')
+    plt.ylabel('Y (m)')
+    plt.show()
+
 def plot_value_graph(probDef, key):
     plt.plot(probDef.solution.time, getattr(probDef.solution, key))
+    for wpt in probDef.wpts:
+        if key in wpt.waypoint_dict:
+            plt.plot(wpt.time, wpt.waypoint_dict[key], 'bo')
+    
     plt.title(key)
     plt.show()
 

@@ -33,7 +33,7 @@ def kinematicConstraints(probDef):
         #https://github.com/SleipnirGroup/Choreo/blob/main/trajoptlib/src/SwerveTrajectoryGenerator.cpp#L103
         #ensures that the robot does not travel more than it's width in a given sample interval
         #prevents teleporting through obstacles as defined in trajoptlib
-        probDef.problem.subject_to(dt*probDef.botParams.wheelRad*probDef.botParams.wheelMaxAngVel <= probDef.botParams.minWidth)
+        # probDef.problem.subject_to(dt*probDef.botParams.wheelRad*probDef.botParams.wheelMaxAngVel <= probDef.botParams.circumcircleRadius*2)
 
 
 
@@ -155,17 +155,16 @@ def dynamicConstraints(probDef):
 
 def applyExternalConstraints(probDef):
     # apply waypoint constraints
-    for wptInd in range(len(probDef.wpts[:-1])):
-        i = get_index(wptInd, 0, probDef.samples)
+    for wpt in probDef.wpts:
+        
         #constrain waypoints
-        probDef.wpts[wptInd].apply(probDef.problem, probDef.solution, i)
+        wpt.apply(probDef)
 
-    #constrain last waypoint
-    probDef.wpts[-1].apply(probDef.problem, probDef.solution, -1)
+
 
     # apply obstacle constraints
     for o in probDef.obs:
-        o.apply(probDef.problem, probDef.solution, 0, sum(probDef.samples))
+        o.apply(probDef, 0, sum(probDef.samples))
         
 def applyInitialGuess( probDef):
     """ Create the initial guess values for the problem. This linearly interpolates the values of each sample before constrained waypoints for each value type.
@@ -184,7 +183,7 @@ def applyInitialGuess( probDef):
         for sgmtInd,frac in enumerate(range(Ns)):
             i = get_index(wptInd, sgmtInd, samples)
             xstart = wpts[wptInd].x + (wpts[wptInd+1].x-wpts[wptInd].x)*(frac/Ns)
-            ystart = wpts[wptInd].x + (wpts[wptInd+1].y-wpts[wptInd].y)*(frac/Ns)
+            ystart = wpts[wptInd].y + (wpts[wptInd+1].y-wpts[wptInd].y)*(frac/Ns)
             solution.x[i].set_value(xstart)
             solution.y[i].set_value(ystart)
 
@@ -222,6 +221,6 @@ def getInitialThetaPerPoint(probDef):
         thetaPrev = t
     
     if len(thetaPerPoint) < sum(samples):
-        thetaPerPoint.extend([thetaPerPoint[-1]]*sum(samples)-len(thetaPerPoint))
+        thetaPerPoint.extend([thetaPerPoint[-1] if len(thetaPerPoint)>0 else thetaPrev]*(sum(samples)-len(thetaPerPoint)))
 
     return thetaPerPoint
