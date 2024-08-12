@@ -86,7 +86,7 @@ class LookAt(Constraint):
         for wpt in probDef.wpts:
             if wpt.lastIndPlusOne > start_ind+1:
                 break
-            if wpt.hasValue("theta"):
+            if wpt.hasValue("theta") and not isinstance(wpt, UnboundWaypoint):
                 prevTheta = wpt.theta
                 initialInd = wpt.firstInd
                 initialWpt = wpt
