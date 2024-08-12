@@ -33,7 +33,7 @@ def kinematicConstraints(probDef):
         #https://github.com/SleipnirGroup/Choreo/blob/main/trajoptlib/src/SwerveTrajectoryGenerator.cpp#L103
         #ensures that the robot does not travel more than it's width in a given sample interval
         #prevents teleporting through obstacles as defined in trajoptlib
-        # probDef.problem.subject_to(dt*probDef.botParams.wheelRad*probDef.botParams.wheelMaxAngVel <= probDef.botParams.circumcircleRadius*2)
+        # probDef.problem.subject_to(dt*maxWheelVel <= probDef.botParams.circumcircleRadius*2)
 
 
 
@@ -84,7 +84,7 @@ def kinematicConstraints(probDef):
 
             # add quantity limits
             # jerk limit
-            probDef.problem.subject_to(sqrNorm((an[0]-an1[0], an[1]-an1[1]))<= probDef.botParams.jerkLim**2)
+            # probDef.problem.subject_to(sqrNorm((an[0]-an1[0], an[1]-an1[1]))<= probDef.botParams.jerkLim**2)
             # linear acceleration limit
             probDef.problem.subject_to(sqrNorm(an) <= probDef.botParams.accelLim**2)
             # angular velocity limit
