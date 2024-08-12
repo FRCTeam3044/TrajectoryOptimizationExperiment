@@ -114,9 +114,6 @@ class BotParams():
     """
     Dataclass to hold and compute robot properties necessary for the problem.
     """
-    
-    wheelRad: float = 0.0381 #m
-
     jerkLim: float = 1 #m/s^3
     accelLim: float = 3 #m/s^2
     omegaLim: float = 8 #rad/s
@@ -127,11 +124,7 @@ class BotParams():
 
     # assumes square bot with module at each corner, length of one side
     botEdgeSize: float = 1 #m
-    @property
-    def wheelMaxAngVel(self):
-        """maximum angular velocity of each wheel in rad/s"""
-        return self.maxWheelVel/self.wheelRad
-    
+
     @property
     def minWidth(self):
         """additional name for robot edge size. This is the minimum width between any of the module, which for a square is just the length of the edge"""

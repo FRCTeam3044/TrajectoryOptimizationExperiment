@@ -6,7 +6,7 @@ from trajOpt.jorgMathUtil import lerp, sqrDist
 
 def defaultBot():
     return BotParams(wheelRad=0.0381,
-            jerkLim=2,
+            jerkLim=1000,
             accelLim=6,
             omegaLim=8,
             alphaLim=15,
