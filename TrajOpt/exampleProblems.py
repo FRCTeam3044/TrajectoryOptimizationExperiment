@@ -181,9 +181,12 @@ def pickup2NotesAndShoot():
     botParams = defaultBot()
     # don't cross center field (problem not actual to scale, just a test)
     obs = [BoundValue('y', max=notePos1[1]+0.25), BoundValue('omega',max=1)
-        , CircularObstacle(-0.5, 2, 0.25)
-        , CircularObstacle(3,5,0.25)
+        , ConvexPolygonBound([[0,0], [0,notePos1[1]+0.25], [3, notePos1[1]+0.25], [3,0]])
     ]
+    # obs = [BoundValue('y', max=notePos1[1]+0.25), BoundValue('omega',max=1)
+    #     , CircularObstacle(-0.5, 2, 0.25)
+    #     , CircularObstacle(3,5,0.25)
+    # ]
     return ProblemDefinition(botParams, wpts, obs)
 
 def pickup2NotesAndShootPolyBound():
