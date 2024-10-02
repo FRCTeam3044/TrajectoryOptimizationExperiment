@@ -1,7 +1,7 @@
 import matplotlib.pylab as plt
 import math
 from dataclasses import dataclass, fields
-from trajOpt.jorgMathUtil import pointLineDist, sub, sqrNorm,sqrDist
+from trajOpt.jorgMathUtil import pointLineDist, sub, sqrNorm,sqrDist, pointLineDist, dot
 from jormungandr import autodiff
 def constrainTo(problem, state, val):
     for s, v in zip(state, val):
@@ -57,6 +57,17 @@ class BoundVelocityConstraint(Constraint):
 
             if self.max is not None:
                 probDef.problem.subject_to(sqrNorm((vxn, vyn)) <= self.max**2) 
+
+class TakesAtLeast(Constraint):
+    def __init__(self, time) -> None:
+        self.time = time
+    def apply(self, probDef, start_ind, end_ind=None):
+        assert end_ind - start_ind > 1, "takes at least should only be applied to entire segments or trajectories"
+        dts = probDef.solution.dts_matched[start_ind: end_ind]
+        probDef.problem.subject_to(sum(dts) >= self.time)
+        
+
+
 class Near(Constraint):
     def __init__(self, pt, tolMeters) -> None:
         super().__init__()
@@ -68,6 +79,71 @@ class Near(Constraint):
         y = probDef.solution.y[start_ind: end_ind]
         for xn, yn in zip(x,y):
             probDef.problem.subject_to(sqrDist(self.pt,(xn,yn)) <= self.tolMeters**2)
+
+class OnLine(Constraint):
+    # you cannot use multiples of this constraint at one time
+    def __init__(self, pts) -> None:
+        super().__init__()
+        self.pts = pts
+    
+    def apply(self, probDef, start_ind, end_ind=None):
+        x = probDef.solution.x[start_ind: end_ind]
+        y = probDef.solution.y[start_ind: end_ind]
+        for xn, yn in zip(x,y):
+            probDef.problem.subject_to(pointLineDist((xn, yn), self.pts[0], self.pts[1]) == 0)
+    
+class OnLines(Constraint):
+    # works, but is pretty slow, use only if necessary
+    # cannot use multiples of this at the same time, but this method could be rewritten to allow for all arbitrary line segments to be expressed in just one constraint instead of a set of continuous segments
+    def __init__(self, pts) -> None:
+        super().__init__()
+        self.pts = pts
+    
+    def apply(self, probDef, start_ind, end_ind=None):
+        self.slacks = [probDef.problem.decision_variable() for _ in range(len(self.pts)-1)]
+        
+        x = probDef.solution.x[start_ind: end_ind]
+        y = probDef.solution.y[start_ind: end_ind]
+        for xn, yn in zip(x,y):
+            for l1, l2, slack in zip(self.pts[:-1], self.pts[1:], self.slacks):
+                probDef.problem.subject_to(slack >= 0)
+                probDef.problem.subject_to(slack*pointLineDist((xn, yn), l1, l2) == 0)
+                
+        probDef.problem.subject_to(sum(self.slacks) > 0.1)
+
+class ConvexPolygonBound(Constraint):
+    def __init__(self, pts) -> None:
+        super().__init__()
+        assert len(pts) > 2
+        self.pts = pts
+
+    def apply(self, probDef, start_ind, end_ind=None):
+        x = probDef.solution.x[start_ind: end_ind]
+        y = probDef.solution.y[start_ind: end_ind]
+
+        rad = probDef.botParams.circumcircleRadius
+        for l1, l2 in zip(self.pts[:-1], self.pts[1:]):
+            for xn, yn in zip(x,y):   
+                hyp_vec = sub(l2,l1) 
+                hyp_norm = (hyp_vec[1],-hyp_vec[0])
+                hyp_offset = dot(hyp_norm, l1)
+                p = (xn,yn)
+                probDef.problem.subject_to(dot(hyp_norm,p)-hyp_offset >= 0)
+        
+        # connect last and first waypoint to close the shape
+        if len(self.pts) > 2:
+            l1 = self.pts[-1]
+            l2 = self.pts[0]
+            for xn, yn in zip(x,y):    
+                hyp_vec = sub(l2,l1) 
+                hyp_norm = (hyp_vec[1],-hyp_vec[0])
+                hyp_offset = dot(hyp_norm, l1)
+                p = (xn,yn)
+                probDef.problem.subject_to(dot(hyp_norm,p)-hyp_offset >= 0)          
+    def plot(self, axis):
+        x = [p[0] for p in self.pts] + [self.pts[0][0]]
+        y = [p[1] for p in self.pts] + [self.pts[0][1]]
+        axis.plot(x,y, 'g')
 
 class LookAt(Constraint):
     def __init__(self, pt, tolRad, localOffset=0) -> None:
@@ -144,7 +220,7 @@ class LineObstacle(Obstacle):
         y = probDef.solution.y[start_ind: end_ind]
 
         rad = probDef.botParams.circumcircleRadius
-        for l1, l2 in zip(self.pts[-1:], self.pts[1:]):
+        for l1, l2 in zip(self.pts[:-1], self.pts[1:]):
             for xn, yn in zip(x,y):    
                 p = (xn,yn)
                 probDef.problem.subject_to(pointLineDist(p, l1, l2)**2 >= rad**2)

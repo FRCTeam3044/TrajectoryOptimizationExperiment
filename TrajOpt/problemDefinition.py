@@ -195,7 +195,7 @@ class ProblemDefinition():
         """
         return out
 
-    def get_samples(self, wpts, sampPerMeter=15, sampPerRad=15, minSamp=10):
+    def get_samples(self, wpts, sampPerMeter=5, sampPerRad=15, minSamp=10):
         """
         Utility function to decide how many samples per segment should be added to the problem.
 

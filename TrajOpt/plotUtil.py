@@ -81,6 +81,9 @@ def _plot_obs(axis, obs):
 def _plot_wpts(axis, wpts):
     for wpt in wpts:
         wpt.plot(axis)
+    
+        for sgmt in wpt.sgmtConsts:
+            sgmt.plot(axis)
 
 def plot_solution(probDef):
     assert probDef.solution.solved, "problem must be solved to plot solution"
