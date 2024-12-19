@@ -4,7 +4,7 @@ This is an experimental project started by David to see if realtime trajectory o
 
 The primary goal of this work is to determine whether it is technically feasible to run a trajectory optimizer in realtime or near-realtime on top of Oxplorer generated trajectories. This repository only contains code for a basic version of problem definition, solving, and visualization, and therefore does none of the engineering required for integration or application. Students may use this as a starting point for learning about trajectory optimization and can build off of this if they wish to develop it into a full solution. I do not intend to contribute more of a working solution to this repository, but will likely continue work on the problem privately in order to better understand potential pit falls and help provide accurate guidance should a student pick up the project in the future. 
 
-Please feel free to ask me any questions you have about this work.
+Please feel free to ask me any questions you have about this work. [Here is a primer on Python](https://docs.google.com/presentation/d/1788nTgEit3_-w4hLBQ4tz8Bxnf_y4TFbHPaBatxqghU/edit#slide=id.p) if you are interested in taking a look at the code in this repo in more detail.
 
 # Install Instructions
 If you do not already have and IDE for python installed, I'd recommend following normal FRC setup instructions to get VSCode [here](https://docs.wpilib.org/en/stable/docs/zero-to-robot/step-2/wpilib-setup.html).
