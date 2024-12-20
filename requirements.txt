@@ -1,4 +1,4 @@
-jormungandr==0.0.1
+sleipnirgroup_jormungandr==0.0.1.dev273
 matplotlib==3.9.1.post1
 numpy==2.0.1
 ipykernel
